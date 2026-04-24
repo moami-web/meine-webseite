@@ -1,122 +1,180 @@
-const header = document.querySelector("[data-header]");
-const nav = document.querySelector("[data-nav]");
-const navToggle = document.querySelector("[data-nav-toggle]");
-const navLinks = document.querySelectorAll(".site-nav a");
-const revealItems = document.querySelectorAll(".reveal");
-const flow = document.querySelector("[data-flow]");
-const sections = document.querySelectorAll("main section[id]");
-const counters = document.querySelectorAll("[data-count]");
+/* ──────────────────────────────────────
+   script.js – Animationen & Interaktionen
+   Microsoft 365 Prozessautomatisierung
+────────────────────────────────────── */
 
-// Mobile Navigation zentral schließen, damit Klicks, Escape und Link-Auswahl gleich reagieren.
-const closeNavigation = () => {
-  nav.classList.remove("is-open");
-  navToggle.classList.remove("is-open");
-  navToggle.setAttribute("aria-expanded", "false");
-  navToggle.setAttribute("aria-label", "Navigation öffnen");
-  document.body.classList.remove("nav-open");
-};
+document.addEventListener('DOMContentLoaded', () => {
 
-navToggle.addEventListener("click", () => {
-  const isOpen = nav.classList.toggle("is-open");
-  navToggle.classList.toggle("is-open", isOpen);
-  navToggle.setAttribute("aria-expanded", String(isOpen));
-  navToggle.setAttribute("aria-label", isOpen ? "Navigation schließen" : "Navigation öffnen");
-  document.body.classList.toggle("nav-open", isOpen);
-});
+  // ── 1. Mobile Navigation ──
+  const toggle = document.getElementById('nav-toggle');
+  const mobileNav = document.getElementById('nav-mobile');
+  const body = document.body;
 
-navLinks.forEach((link) => {
-  link.addEventListener("click", () => {
-    closeNavigation();
-  });
-});
-
-window.addEventListener("scroll", () => {
-  header.classList.toggle("is-scrolled", window.scrollY > 12);
-});
-
-const revealObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-
-      entry.target.classList.add("is-visible");
-
-      if (entry.target.matches("[data-flow]")) {
-        entry.target.classList.add("is-visible");
-      }
-
-      if (entry.target.classList.contains("stats")) {
-        animateCounters();
-      }
-
-      revealObserver.unobserve(entry.target);
+  if (toggle && mobileNav) {
+    toggle.addEventListener('click', () => {
+      const isOpen = mobileNav.classList.toggle('open');
+      toggle.classList.toggle('open', isOpen);
+      body.classList.toggle('nav-open', isOpen);
+      toggle.setAttribute('aria-label', isOpen ? 'Menü schließen' : 'Menü öffnen');
     });
-  },
-  {
-    threshold: 0.18,
-    rootMargin: "0px 0px -80px 0px"
+
+    // Close on nav link click
+    mobileNav.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileNav.classList.remove('open');
+        toggle.classList.remove('open');
+        body.classList.remove('nav-open');
+      });
+    });
   }
-);
 
-// Reveal-Animationen laufen einmalig und mit leicht versetztem Timing.
-revealItems.forEach((item, index) => {
-  item.style.transitionDelay = `${Math.min(index % 5, 4) * 80}ms`;
-  revealObserver.observe(item);
-});
+  // ── 2. Header scroll effect ──
+  const header = document.getElementById('site-header');
+  const onScroll = () => {
+    header?.classList.toggle('scrolled', window.scrollY > 40);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
 
-if (flow) {
-  revealObserver.observe(flow);
-}
+  // ── 3. Active Nav Link on Scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-desktop .nav-link');
 
-const navObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-
-      const activeLink = document.querySelector(`.site-nav a[href="#${entry.target.id}"]`);
-      navLinks.forEach((link) => link.classList.remove("is-active"));
-
-      if (activeLink) {
-        activeLink.classList.add("is-active");
+  const observeActive = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.toggle(
+            'active',
+            link.getAttribute('href') === `#${entry.target.id}`
+          );
+        });
       }
     });
-  },
-  {
-    threshold: 0.36,
-    rootMargin: "-20% 0px -55% 0px"
-  }
-);
+  }, { threshold: 0.4, rootMargin: `-${72}px 0px 0px 0px` });
 
-sections.forEach((section) => navObserver.observe(section));
+  sections.forEach(s => observeActive.observe(s));
 
-let countersStarted = false;
+  // ── 4. Scroll Reveal (IntersectionObserver) ──
+  const revealEls = document.querySelectorAll('.reveal-up, .reveal-right');
 
-// Dezente Zähleranimation für die Beispielwerte im Praxisbereich.
-function animateCounters() {
-  if (countersStarted) return;
-  countersStarted = true;
-
-  counters.forEach((counter) => {
-    const target = Number(counter.dataset.count);
-    const duration = 1100;
-    const start = performance.now();
-
-    const update = (now) => {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      counter.textContent = Math.round(target * eased);
-
-      if (progress < 1) {
-        requestAnimationFrame(update);
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target); // only once
       }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  revealEls.forEach(el => revealObserver.observe(el));
+
+  // ── 5. Flow Counter Animation ──
+  const counterEl = document.getElementById('flow-counter');
+  if (counterEl) {
+    // Animate counter from 0 to random number between 48–127
+    const target = Math.floor(Math.random() * 80) + 48;
+    let current = 0;
+    const duration = 1800; // ms
+    const step = Math.ceil(target / (duration / 16));
+
+    const tick = () => {
+      current = Math.min(current + step, target);
+      counterEl.textContent = current;
+      if (current < target) requestAnimationFrame(tick);
     };
 
-    requestAnimationFrame(update);
-  });
-}
+    // Start counter when hero is visible
+    const counterObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setTimeout(tick, 800);
+        counterObserver.disconnect();
+      }
+    }, { threshold: 0.5 });
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && nav.classList.contains("is-open")) {
-    closeNavigation();
+    const heroSection = document.getElementById('hero');
+    if (heroSection) counterObserver.observe(heroSection);
   }
+
+  // ── 6. Flow Steps Sequential Animation ──
+  const flowSteps = document.querySelectorAll('.flow-step');
+  let activeIndex = 0;
+
+  const activateStep = () => {
+    flowSteps.forEach((step, i) => {
+      step.style.transform = i === activeIndex ? 'scale(1.08)' : '';
+    });
+    activeIndex = (activeIndex + 1) % flowSteps.length;
+  };
+
+  if (flowSteps.length) {
+    setInterval(activateStep, 1400);
+  }
+
+  // ── 7. Form Submission (Demo) ──
+  const form = document.getElementById('contact-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+
+      btn.innerHTML = '<span>✓ Nachricht gesendet!</span>';
+      btn.style.background = 'linear-gradient(135deg, #059669, #047857)';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = '';
+        btn.disabled = false;
+        form.reset();
+      }, 3000);
+    });
+  }
+
+  // ── 8. Tool chips stagger animation ──
+  const toolChips = document.querySelectorAll('.tool-chip');
+  toolChips.forEach((chip, i) => {
+    chip.style.opacity = '0';
+    chip.style.transform = 'scale(.92)';
+    chip.style.transition = `opacity .4s ease ${i * 50}ms, transform .4s ease ${i * 50}ms`;
+  });
+
+  const toolsObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      toolChips.forEach(chip => {
+        chip.style.opacity = '1';
+        chip.style.transform = 'scale(1)';
+      });
+      toolsObserver.disconnect();
+    }
+  }, { threshold: 0.2 });
+
+  const toolsSection = document.getElementById('tools');
+  if (toolsSection) toolsObserver.observe(toolsSection);
+
+  // ── 9. Smooth scroll offset (for fixed header) ──
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', (e) => {
+      const target = document.querySelector(anchor.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        const top = target.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    });
+  });
+
+  // ── 10. Card tilt micro-interaction ──
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - .5;
+      const y = (e.clientY - rect.top) / rect.height - .5;
+      card.style.transform = `translateY(-6px) rotateX(${-y * 5}deg) rotateY(${x * 5}deg)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+  });
+
 });
